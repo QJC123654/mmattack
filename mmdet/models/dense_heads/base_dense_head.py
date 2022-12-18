@@ -279,11 +279,14 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
             mlvl_bboxes /= mlvl_bboxes.new_tensor(scale_factor)
         mlvl_scores = torch.cat(mlvl_scores)
         mlvl_labels = torch.cat(mlvl_labels)
+
         mlvl_logits = kwargs['mlvl_logits']
         mlvl_gf_bboxes = kwargs['mlvl_gf_bboxes']
+        mlvl_anchor_centers = kwargs['mlvl_anchor_centers']
 
         mlvl_gf_bboxes = torch.cat(mlvl_gf_bboxes)
         mlvl_logits = torch.cat(mlvl_logits)
+        mlvl_anchor_centers = torch.cat(mlvl_anchor_centers)
 
         if mlvl_score_factors is not None:
             # TODO： Add sqrt operation in order to be consistent with
@@ -302,7 +305,8 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
             det_labels = mlvl_labels[keep_idxs][:cfg.max_per_img]
             det_logits = mlvl_logits[keep_idxs][:cfg.max_per_img]
             det_gf_bboxes = mlvl_gf_bboxes[keep_idxs][:cfg.max_per_img]
-            return det_bboxes, det_labels, det_logits, det_gf_bboxes
+            det_anchor_centers = mlvl_anchor_centers[keep_idxs][:cfg.max_per_img]
+            return det_bboxes, det_labels, det_logits, det_gf_bboxes, det_anchor_centers
         else:
             return mlvl_bboxes, mlvl_scores, mlvl_labels
 

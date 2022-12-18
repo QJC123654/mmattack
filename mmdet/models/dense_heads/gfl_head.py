@@ -5,7 +5,7 @@ import torch.nn.functional as F
 from mmcv.cnn import ConvModule, Scale
 from mmcv.runner import force_fp32
 
-from mmdet.core import (anchor_inside_flags, bbox_overlaps, build_assigner,
+from mmdet.core import (anchor, anchor_inside_flags, bbox_overlaps, build_assigner,
                         build_sampler, images_to_levels, multi_apply,
                         reduce_mean, unmap)
 from mmdet.core.utils import filter_scores_and_topk
@@ -432,6 +432,7 @@ class GFLHead(AnchorHead):
         mlvl_labels = []
         mlvl_logits = []
         mlvl_gf_bboxes = []
+        mlvl_anchor_centers = []
 
         for level_idx, (cls_score, bbox_pred, stride, priors) in enumerate(
                 zip(cls_score_list, bbox_pred_list,
@@ -469,6 +470,7 @@ class GFLHead(AnchorHead):
             mlvl_labels.append(labels)
             mlvl_logits.append(logit)
             mlvl_gf_bboxes.append(gf_bbox_pred)
+            mlvl_anchor_centers.append(self.anchor_center(priors / stride[0]))
 
         return self._bbox_post_process(
             mlvl_scores,
@@ -479,7 +481,8 @@ class GFLHead(AnchorHead):
             rescale=rescale,
             with_nms=with_nms,
             mlvl_logits = mlvl_logits,
-            mlvl_gf_bboxes = mlvl_gf_bboxes
+            mlvl_gf_bboxes = mlvl_gf_bboxes,
+            mlvl_anchor_centers = mlvl_anchor_centers
             )
 
     def get_targets(self,
