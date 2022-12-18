@@ -280,6 +280,9 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
         mlvl_scores = torch.cat(mlvl_scores)
         mlvl_labels = torch.cat(mlvl_labels)
         mlvl_logits = kwargs['mlvl_logits']
+        mlvl_gf_bboxes = kwargs['mlvl_gf_bboxes']
+
+        mlvl_gf_bboxes = torch.cat(mlvl_gf_bboxes)
         mlvl_logits = torch.cat(mlvl_logits)
 
         if mlvl_score_factors is not None:
@@ -298,7 +301,8 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
             det_bboxes = det_bboxes[:cfg.max_per_img]
             det_labels = mlvl_labels[keep_idxs][:cfg.max_per_img]
             det_logits = mlvl_logits[keep_idxs][:cfg.max_per_img]
-            return det_bboxes, det_labels, det_logits
+            det_gf_bboxes = mlvl_gf_bboxes[keep_idxs][:cfg.max_per_img]
+            return det_bboxes, det_labels, det_logits, det_gf_bboxes
         else:
             return mlvl_bboxes, mlvl_scores, mlvl_labels
 

@@ -431,6 +431,7 @@ class GFLHead(AnchorHead):
         mlvl_scores = []
         mlvl_labels = []
         mlvl_logits = []
+        mlvl_gf_bboxes = []
 
         for level_idx, (cls_score, bbox_pred, stride, priors) in enumerate(
                 zip(cls_score_list, bbox_pred_list,
@@ -438,6 +439,7 @@ class GFLHead(AnchorHead):
             assert cls_score.size()[-2:] == bbox_pred.size()[-2:]
             assert stride[0] == stride[1]
 
+            gf_bbox_pred = bbox_pred.permute(1, 2, 0).reshape(-1, 4 * (self.reg_max + 1))
             bbox_pred = bbox_pred.permute(1, 2, 0)
             bbox_pred = self.integral(bbox_pred) * stride[0]
             logit = cls_score.permute(1, 2, 0).reshape(
@@ -455,6 +457,7 @@ class GFLHead(AnchorHead):
                 dict(bbox_pred=bbox_pred, priors=priors))
             scores, labels, keep_idxs, filtered_results = results
             logit = logit[keep_idxs]
+            gf_bbox_pred = gf_bbox_pred[keep_idxs]
 
             bbox_pred = filtered_results['bbox_pred']
             priors = filtered_results['priors']
@@ -465,6 +468,7 @@ class GFLHead(AnchorHead):
             mlvl_scores.append(scores)
             mlvl_labels.append(labels)
             mlvl_logits.append(logit)
+            mlvl_gf_bboxes.append(gf_bbox_pred)
 
         return self._bbox_post_process(
             mlvl_scores,
@@ -474,7 +478,9 @@ class GFLHead(AnchorHead):
             cfg,
             rescale=rescale,
             with_nms=with_nms,
-            mlvl_logits = mlvl_logits)
+            mlvl_logits = mlvl_logits,
+            mlvl_gf_bboxes = mlvl_gf_bboxes
+            )
 
     def get_targets(self,
                     anchor_list,
