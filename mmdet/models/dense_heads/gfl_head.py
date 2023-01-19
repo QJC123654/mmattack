@@ -470,7 +470,7 @@ class GFLHead(AnchorHead):
             mlvl_labels.append(labels)
             mlvl_logits.append(logit)
             mlvl_gf_bboxes.append(gf_bbox_pred)
-            mlvl_anchor_centers.append(self.anchor_center(priors / stride[0]))
+            mlvl_anchor_centers.append(self.anchor_center(priors))
 
         return self._bbox_post_process(
             mlvl_scores,
