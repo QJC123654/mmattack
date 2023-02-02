@@ -471,6 +471,7 @@ class GFLHead(AnchorHead):
             mlvl_logits.append(logit)
             mlvl_gf_bboxes.append(gf_bbox_pred)
             mlvl_anchor_centers.append(self.anchor_center(priors))
+            
 
         return self._bbox_post_process(
             mlvl_scores,
@@ -482,7 +483,7 @@ class GFLHead(AnchorHead):
             with_nms=with_nms,
             mlvl_logits = mlvl_logits,
             mlvl_gf_bboxes = mlvl_gf_bboxes,
-            mlvl_anchor_centers = mlvl_anchor_centers
+            mlvl_anchor_centers = mlvl_anchor_centers,
             )
 
     def get_targets(self,

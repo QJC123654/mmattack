@@ -117,6 +117,15 @@ class _CAM:
 
         return cams
 
+    @staticmethod
+    def normalize(cams: Tensor, spatial_dims: Optional[int] = None, eps: float = 1e-8) -> Tensor:
+        """CAM normalization."""
+        spatial_dims = cams.ndim - 1 if spatial_dims is None else spatial_dims
+        y1 = torch.sub(cams, cams.flatten(start_dim=-spatial_dims).min(-1).values[(...,) + (None,) * spatial_dims])
+        # Avoid division by zero
+        y2 = torch.div(y1, y1.flatten(start_dim=-spatial_dims).max(-1).values[(...,) + (None,) * spatial_dims] + eps)
+        return y2
+
     def _get_weights(self, class_idx, scores, **kwargs):
         raise NotImplementedError
 
@@ -192,7 +201,7 @@ class _CAM:
 
             # Normalize the CAM
             if normalized:
-                cam = self._normalize(cam)
+                cam = self.normalize(cam)
 
             cams.append(cam)
 

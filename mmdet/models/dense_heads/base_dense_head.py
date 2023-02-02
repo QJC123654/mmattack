@@ -306,6 +306,7 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
             det_logits = mlvl_logits[keep_idxs][:cfg.max_per_img]
             det_gf_bboxes = mlvl_gf_bboxes[keep_idxs][:cfg.max_per_img]
             det_anchor_centers = mlvl_anchor_centers[keep_idxs][:cfg.max_per_img]
+
             return det_bboxes, det_labels, det_logits, det_gf_bboxes, det_anchor_centers
         else:
             return mlvl_bboxes, mlvl_scores, mlvl_labels
