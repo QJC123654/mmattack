@@ -53,7 +53,9 @@ for x in range(1000000, 0, -10):
     # test
     test_img = adv_images.clone().detach()
     test_img = normalize(test_img, mean, std)
-    result = inference_detector2(model2, test_img)
+    test_data = data.clone()
+    test_data['img'][0] = test_data
+    result = inference_detector2(model2, test_data)
     idx = result[0][:, 4] > 0.3
     det_labels = result[1][idx]
     if not (det_labels == 15).any():
