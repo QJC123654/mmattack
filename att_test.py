@@ -1,5 +1,3 @@
-import imp
-from msilib import datasizemask
 from load_model import load_model
 from init_inference import init_inference, inference_detector2
 from normalize import normalize, denormalize
@@ -13,7 +11,7 @@ g_min_iou = 1
 # init model
 model = load_model()
 # img path
-img = 'path'
+img = './dog_cat.jpg'
 results, gboxes, data = init_inference(model, img)
 #get origin xyxy
 l, r, u, d = 150.5, 710.5, 418.6, 794.5
@@ -39,7 +37,7 @@ adv_images = torch.clamp(adv_images, min=0, max=255).detach()
 for x in range(1000000, 0, -10):
     x = x / 1e6
     for _ in range(20):
-        print(_)
+        print('epoch:  ', _)
         adv_images.requires_grad = True
         data['img'][0] = normalize(adv_images, mean, std)
         cost = total_loss(model, data, gboxes, x)
@@ -72,6 +70,7 @@ for x in range(1000000, 0, -10):
         bboxes2 = att_boxes[..., 0:4]
         overlaps = bbox_overlaps(bboxes1, bboxes2)
         max_iou = overlaps.max(dim = -1)[0].item()
+        print('max_iou:', max_iou)
         if max_iou < 0.5:
             with open('./log.txt', 'a+') as f:
                 f.write(x)

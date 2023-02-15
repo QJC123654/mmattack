@@ -100,7 +100,8 @@ def inference_detector2(model, imgs):
         will be returned, otherwise return the detection results directly.
     """
     
-    is_batch, data = data_process(model, imgs)
+    data = imgs
+    is_batch = False
     # forward the model
     with torch.no_grad():
         results = model(return_loss=False, rescale=True, **data)
