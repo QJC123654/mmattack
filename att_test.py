@@ -30,7 +30,6 @@ mean = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['mean']).to(data['im
 std = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['std']).to(data['img'][0].device)
 
 
-
 for x in range(1000000, 0, -10):
     att_data = data.copy()
     images = att_data['img'][0]

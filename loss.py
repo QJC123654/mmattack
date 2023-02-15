@@ -29,8 +29,8 @@ def L1_norm_loss(amap):
 
 def cross_entropy_loss(logits, labels):
   criterion = nn.CrossEntropyLoss()
-  print(logits.shape)
-  print(labels.shape)
+  # print(logits.shape)
+  # print(labels.shape)
   if logits.ndim < 2:
     n = 1
   else:
