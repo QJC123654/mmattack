@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 import torch
 import os
-os.sys.path.append('/content/mmattack/torch-cam')
+os.sys.path.append('./torch-cam')
 from torch.functional import Tensor
 # Define your model
 # Set your CAM extractor
