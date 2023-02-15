@@ -29,16 +29,16 @@ alpha = 2
 mean = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['mean']).to(data['img'][0].device)
 std = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['std']).to(data['img'][0].device)
 
+att_data = data.copy()
+images = att_data['img'][0].clone().detach()
+images = denormalize(images, mean=mean, std=std)
+init_adv_images = images.clone().detach()
+init_adv_images = init_adv_images + torch.empty_like(init_adv_images).uniform_(-eps, eps)
+init_adv_images = torch.clamp(init_adv_images, min=0, max=255).detach()
 
 for x in range(1000000, 0, -10):
-    att_data = data.copy()
-    images = att_data['img'][0]
-    images = denormalize(images, mean=mean, std=std)
-    adv_images = images.clone().detach()
-    adv_images = adv_images + torch.empty_like(adv_images).uniform_(-eps, eps)
-    adv_images = torch.clamp(adv_images, min=0, max=255).detach()
-
     x = x / 1e6
+    adv_images = init_adv_images.clone().detach()
     for _ in range(20):
         print('epoch:  ', _)
         adv_images.requires_grad = True

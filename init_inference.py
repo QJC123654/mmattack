@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import mmcv
 import numpy as np
 import torch
