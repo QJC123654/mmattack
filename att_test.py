@@ -1,10 +1,9 @@
 from load_model import load_model
-from init_inference import init_inference, inference_detector2
+from init_inference import init_inference, inference_detector2, data_process
 from normalize import normalize, denormalize
 from loss import total_loss
-
 import torch
-
+import cv2
 from mmdet.core.bbox.iou_calculators import bbox_overlaps
 
 g_min_iou = 1
@@ -36,7 +35,8 @@ init_adv_images = images.clone().detach()
 init_adv_images = init_adv_images + torch.empty_like(init_adv_images).uniform_(-eps, eps)
 init_adv_images = torch.clamp(init_adv_images, min=0, max=255).detach()
 
-for x in range(1000000, 0, -10):
+for x in range(1000000, -1, -10):
+    print(x)
     x = x / 1e6
     adv_images = init_adv_images.clone().detach()
     for _ in range(20):
@@ -53,13 +53,21 @@ for x in range(1000000, 0, -10):
         adv_images = adv_images.detach() + alpha*grad.sign()
         delta = torch.clamp(adv_images - images, min=-eps, max=eps)
         adv_images = torch.clamp(images + delta, min=0, max=255).detach()
+    cv2.imwrite('/content/adv_image.jpg', adv_images.clone().detach().squeeze().permute(1, 2, 0).cpu().numpy()[...,::-1])
+    is_batch_, data_ = data_process(model2, '/content/adv_image.jpg')
     # test
-    test_img = adv_images.clone().detach()
-    test_img = normalize(test_img, mean, std)
-    test_data = data.copy()
-    test_data['img'][0] = test_img
-    result = inference_detector2(model2, test_data)
+    # test_img = adv_images.clone().detach()
+    # test_img = normalize(test_img, mean, std)。#normalize不一样
+    # test_data = data.copy()
+    # test_data['img'][0] = test_img
+    # print(test_img.shape)
+    # print(data_['img'][0].shape)
+    # print(abs(test_img - data_['img'][0]))
+
+    # result = inference_detector2(model2, test_data)
+    result = inference_detector2(model2, data_)
     result = result[0]
+    
     idx = result[0][:, 4] > 0.3
     det_labels = result[1][idx]
     if not (det_labels == 15).any():
@@ -73,6 +81,7 @@ for x in range(1000000, 0, -10):
         att_boxes = det_boxes[det_labels == 15]
         max_iou = 0
         bboxes2 = att_boxes[..., 0:4]
+        print(bboxes2)
         overlaps = bbox_overlaps(bboxes1.to(bboxes2.device), bboxes2)
         max_iou = overlaps.max(dim = -1)[0].item()
         print('max_iou:', max_iou)
