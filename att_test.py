@@ -13,6 +13,7 @@ model = load_model()
 # img path
 img = './dog_cat.jpg'
 results, gboxes, data = init_inference(model, img)
+data['img_metas'][0][0]['ori_shape'] = data['img_metas'][0][0]['img_shape']
 #get origin xyxy
 l, r, u, d = 164, 710.5, 425, 794.5
 bboxes1 = torch.FloatTensor([[l, u, r, d]])
@@ -28,6 +29,9 @@ alpha = 2
 mean = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['mean']).to(data['img'][0].device)
 std = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['std']).to(data['img'][0].device)
 
+mean_test = torch.tensor(model2.cfg.img_norm_cfg.mean, device=mean.device)
+std_test = torch.tensor(model2.cfg.img_norm_cfg.std, device=mean.device)
+
 att_data = data.copy()
 images = att_data['img'][0].clone().detach()
 images = denormalize(images, mean=mean, std=std)
@@ -37,7 +41,7 @@ init_adv_images = torch.clamp(init_adv_images, min=0, max=255).detach()
 
 for x in range(1000000, -1, -10):
     print(x)
-    x = x / 1e6
+    x = x / 1e3
     adv_images = init_adv_images.clone().detach()
     for _ in range(20):
         print('epoch:  ', _)
@@ -53,19 +57,15 @@ for x in range(1000000, -1, -10):
         adv_images = adv_images.detach() + alpha*grad.sign()
         delta = torch.clamp(adv_images - images, min=-eps, max=eps)
         adv_images = torch.clamp(images + delta, min=0, max=255).detach()
-    cv2.imwrite('/content/adv_image.jpg', adv_images.clone().detach().squeeze().permute(1, 2, 0).cpu().numpy()[...,::-1])
-    is_batch_, data_ = data_process(model2, '/content/adv_image.jpg')
+    # cv2.imwrite('/content/adv_image.jpg', adv_images.clone().detach().squeeze().permute(1, 2, 0).cpu().numpy()[...,::-1])
+    # is_batch_, data_ = data_process(model2, '/content/adv_image.jpg')
     # test
-    # test_img = adv_images.clone().detach()
-    # test_img = normalize(test_img, mean, std)。#normalize不一样
-    # test_data = data.copy()
-    # test_data['img'][0] = test_img
-    # print(test_img.shape)
-    # print(data_['img'][0].shape)
-    # print(abs(test_img - data_['img'][0]))
-
-    # result = inference_detector2(model2, test_data)
-    result = inference_detector2(model2, data_)
+    test_img = adv_images.clone().detach()
+    test_img = normalize(test_img, mean_test, std_test)  # normalize不一样
+    test_data = data.copy()
+    test_data['img'][0] = test_img
+    result = inference_detector2(model2, test_data)
+    # result = inference_detector2(model2, data_)
     result = result[0]
     
     idx = result[0][:, 4] > 0.3

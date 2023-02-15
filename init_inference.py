@@ -73,7 +73,7 @@ def inference_detector(model, imgs):
     
     is_batch, data = data_process(model, imgs)
     # forward the model
-    results = model(return_loss=False, rescale=True, **data)
+    results = model(return_loss=False, rescale=False, **data)
     if not is_batch:
         return results[0], data
     else:
@@ -102,7 +102,7 @@ def inference_detector2(model, imgs):
     is_batch = False
     # forward the model
     with torch.no_grad():
-        results = model(return_loss=False, rescale=True, **data)
+        results = model(return_loss=False, rescale=False, **data)
     if not is_batch:
         return results[0]
     else:

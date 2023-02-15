@@ -2,12 +2,10 @@ import torch
 from mmdet.core.bbox.iou_calculators import bbox_overlaps
 
 bboxes1 = torch.FloatTensor([
-        [0, 0, 10, 10],
+        [164, 425, 710, 794.5],
     ])
 bboxes2 = torch.FloatTensor([
-    [0, 0, 10, 20],
-    [0, 10, 10, 19],
-    [10, 10, 20, 20],
+    [218, 234, 777, 821],
     ])
 
 
