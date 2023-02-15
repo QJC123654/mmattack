@@ -14,7 +14,7 @@ model = load_model()
 img = './dog_cat.jpg'
 results, gboxes, data = init_inference(model, img)
 #get origin xyxy
-l, r, u, d = 150.5, 710.5, 418.6, 794.5
+l, r, u, d = 164, 710.5, 425, 794.5
 bboxes1 = torch.FloatTensor([[l, u, r, d]])
 
 #test black model
