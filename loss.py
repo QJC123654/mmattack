@@ -47,10 +47,10 @@ def loss(amap, gboxes, gboxes_adv, pred, label, x):
   l3 = cross_entropy_loss(pred, label)
   # total = l2 + 1e-2 * l3
   total = l2 + x * l3
-  print('l1 = ', l1)
-  print('l2 = ', l2)
-  print('l3 = ', l3)
-  print('totoal = ', total)
+  # print('l1 = ', l1)
+  # print('l2 = ', l2)
+  # print('l3 = ', l3)
+  # print('totoal = ', total)
   return total
 
 
@@ -78,14 +78,14 @@ def total_loss(model, data, gboxes_old, x):
   #logits, labels
   det_logits = results[2][idx]
   det_labels = results[1][idx]
-  print(det_labels)
+  # print(det_labels)
   att_label = det_labels[det_labels == 15] 
   att_logits = det_logits[det_labels == 15]
-  print(att_label.shape)
-  print(att_logits.shape)
+  # print(att_label.shape)
+  # print(att_logits.shape)
   if not (det_labels == 15).any():
     print('attack success')
-    print(att_label)
+    # print(att_label)
     print(det_labels)
     return
   # cal loss
