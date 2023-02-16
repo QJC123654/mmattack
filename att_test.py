@@ -94,7 +94,7 @@ for x in range(1000000, -1, -10):
             keep_x = x
 
 with open('./log.txt', 'a+') as f:
-    f.write('最小iou为:'+ str(g_min_iou) + 'x为' + str(x) + '\n')
+    f.write('最小iou为:'+ str(g_min_iou) + 'x为' + str(keep_x) + '\n')
 f.close()
 
                 
