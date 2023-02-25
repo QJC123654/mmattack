@@ -27,24 +27,33 @@ def L1_norm_loss(amap):
   zero_map = torch.zeros_like(amap)
   return L1_loss(amap, zero_map) 
 
-def cross_entropy_loss(logits, labels):
-  criterion = nn.CrossEntropyLoss()
-  # print(logits.shape)
-  # print(labels.shape)
-  if logits.ndim < 2:
-    n = 1
-  else:
-    n = logits.shape[0]
-  det_labels = torch.zeros((n, logits.shape[-1]), device=logits.device)
-  for i in range(n):
-    det_labels[i][labels[i]] = 1 
-  logits = F.softmax(logits, dim=-1)
-  return criterion(logits, det_labels)
+def gboxes_cross_entropy_loss(logits, labels):
+  # 概率化的label
+  # criterion = nn.CrossEntropyLoss()
+  # # print(logits.shape)
+  # # print(labels.shape)
+  # if logits.ndim < 2:
+  #   n = 1
+  # else:
+  #   n = logits.shape[0]
+  # det_labels = torch.zeros((n, logits.shape[-1]), device=logits.device)
+  # for i in range(n):
+  #   det_labels[i][labels[i]] = 1 
+  # return criterion(logits, det_labels)
+  return F.cross_entropy(logits, labels)
+
+
+
+def smooth_l1_loss(pred, target, beta=1.0):
+  diff = torch.abs(pred - target)
+  loss = torch.where(diff < beta, 0.5 * diff * diff / beta,
+                    diff - 0.5 * beta)
+  return loss
   
 def loss(amap, gboxes, gboxes_adv, pred, label, x):
   l1 = L1_norm_loss(amap)
   l2 = klloss(gboxes, gboxes_adv)
-  l3 = cross_entropy_loss(pred, label)
+  l3 = gboxes_cross_entropy_loss(pred, label)
   # total = l2 + 1e-2 * l3
   total = l2 + x * l3
   # print('l1 = ', l1)
@@ -53,7 +62,7 @@ def loss(amap, gboxes, gboxes_adv, pred, label, x):
   # print('totoal = ', total)
   return total
 
-
+  
 
 # cam_extractor = GradCAM(model, ['neck.fpn_convs.3.conv'])
 # cam_extractor = GradCAM(model, ['neck.fpn_convs.2.conv'])

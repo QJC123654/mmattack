@@ -81,7 +81,6 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
             assert len(cls_scores) == len(score_factors)
 
         num_levels = len(cls_scores)
-
         featmap_sizes = [cls_scores[i].shape[-2:] for i in range(num_levels)]
         mlvl_priors = self.prior_generator.grid_priors(
             featmap_sizes,
@@ -102,7 +101,12 @@ class BaseDenseHead(BaseModule, metaclass=ABCMeta):
                                               score_factor_list, mlvl_priors,
                                               img_meta, cfg, rescale, with_nms,
                                               **kwargs)
+            help_list = []
+            help_list.append(featmap_sizes)
+            results = results + tuple(help_list)
+
             result_list.append(results)
+
         return result_list
 
     def _get_bboxes_single(self,

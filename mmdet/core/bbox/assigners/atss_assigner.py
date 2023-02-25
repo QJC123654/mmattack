@@ -147,7 +147,7 @@ class ATSSAssigner(BaseAssigner):
         # compute center distance between all bbox and gt
         gt_cx = (gt_bboxes[:, 0] + gt_bboxes[:, 2]) / 2.0
         gt_cy = (gt_bboxes[:, 1] + gt_bboxes[:, 3]) / 2.0
-        gt_points = torch.stack((gt_cx, gt_cy), dim=1)
+        gt_points = torch.stack((gt_cx, gt_cy), dim=1)  
 
         bboxes_cx = (bboxes[:, 0] + bboxes[:, 2]) / 2.0
         bboxes_cy = (bboxes[:, 1] + bboxes[:, 3]) / 2.0
