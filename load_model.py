@@ -1,7 +1,7 @@
 import mmcv
 from mmcv.runner import load_checkpoint
 
-from mmdet.apis import inference_detector, show_result_pyplot
+# from mmdet.apis import inference_detector, show_result_pyplot
 from mmdet.models import build_detector
 def load_model(config:str='configs/gfl/gfl_r50_fpn_1x_coco.py',
         checkpoint:str='checkpoints/gfl_r50_fpn_1x_coco_20200629_121244-25944287.pth'):
