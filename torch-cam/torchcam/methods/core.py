@@ -94,7 +94,7 @@ class _CAM:
         """Activation hook."""
         if self._hooks_enabled:
             self.hook_a[idx] = output
-            
+        
 
     def reset_hooks(self) -> None:
         """Clear stored activation and gradients."""

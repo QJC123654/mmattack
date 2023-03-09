@@ -5,14 +5,22 @@ import cv2
 from init_inference import inference_detector
 from load_model import load_model
 from normalize import normalize, denormalize
-from attack import UntargetedAttack, TargetedAttack, VanishingAttack, MyAttack
+from attack import UntargetedAttack, TargetedAttack, VanishingAttack, MyAttack_Vanishing, MyAttack_Targeted
 import torch
 import argparse
 import shutil
+import os
+os.sys.path.append('torch-cam/')
+from torchcam.methods import GradCAM
+
+
 def attack(attack_mode:str, *args, **kwargs):
-    assert attack_mode in ('UntargetedAttack', 'TargetedAttack', 'VanishingAttack', 'MyAttack'), print('attack do not support!!')
+    assert attack_mode in ('UntargetedAttack', 'TargetedAttack', 'VanishingAttack', 'MyAttack', 'MyAttack_Vanishing'), print('attack do not support!!')
     # load model
-    model = load_model()
+    model = load_model(device='cuda:1')
+    if attack_mode.startswith('My'):
+        cam_extractor = GradCAM(model, ['neck.fpn_convs.0.conv', 'neck.fpn_convs.1.conv', 'neck.fpn_convs.2.conv',
+            'neck.fpn_convs.3.conv', 'neck.fpn_convs.4.conv'])
     # attack coco2017val 
     ann_file = '../annotations/instances_val2017.json'
     img_dir = '../val2017/'
@@ -31,7 +39,8 @@ def attack(attack_mode:str, *args, **kwargs):
             gt_box_idx[key].append(i)
 
     for i, img_info in enumerate(ann_data['images']):
-        print('picture', i)
+        if i % 50 == 0:
+            print('picture----------------', i)
         img_id = img_info['id']
         img_file_name = img_info['file_name']
         img_path = img_dir + img_file_name
@@ -50,7 +59,7 @@ def attack(attack_mode:str, *args, **kwargs):
             alpha = 2
             mean = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['mean']).to(data['img'][0].device)
             std = torch.tensor(data['img_metas'][0][0]['img_norm_cfg']['std']).to(data['img'][0].device)
-            images = data['img'][0]
+            images = data['img'][0].clone().detach()
             images = denormalize(images, mean=mean, std=std)
             adv_images = images.clone().detach()
             adv_images = adv_images + torch.empty_like(adv_images).uniform_(-eps, eps)
@@ -60,10 +69,12 @@ def attack(attack_mode:str, *args, **kwargs):
                 adv_images = UntargetedAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, eps, alpha)
             if attack_mode == 'TargetedAttack':
                 adv_images = TargetedAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_logits, eps, alpha, mode=kwargs['mode'])
+            if attack_mode == 'MyAttack_Targeted':
+                adv_images = MyAttack_Targeted(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_logits, gt_labels, cam_extractor, eps, alpha, mode=kwargs['mode'])
             if attack_mode == 'VanishingAttack':
                 adv_images = VanishingAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, eps, alpha)
-            if attack_mode == 'MyAttack':
-                adv_images = MyAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, eps, alpha)
+            if attack_mode == 'MyAttack_Vanishing':
+                adv_images = MyAttack_Vanishing(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, cam_extractor, eps, alpha)
             cv2.imwrite(img_keep_path, adv_images.clone().detach().squeeze().permute(1, 2, 0).cpu().numpy()[...,::-1])
             height = data['img_metas'][0][0]['img_shape'][0]
             width = data['img_metas'][0][0]['img_shape'][1]
@@ -83,6 +94,7 @@ def attack(attack_mode:str, *args, **kwargs):
 
     f = open(keep_ann_path, 'w')
     json.dump(ann_data, f)
+    f.close()
 
 
 
