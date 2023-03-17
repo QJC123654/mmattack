@@ -206,4 +206,6 @@ for img_info in data['images']:
 # judge base on iou and labels
 for gt, pred in zip(groundtruths, predictions):
   overlaps = bbox_overlaps(gt['bboxes'], pred['bboxes'])
-  
+  # attack success for gt no pred with iou > 0.5 and pred_label = gt_label 
+  att_idx = np.nonzero(overlaps > 0.5)
+  gt_lable = gt['labels'][]

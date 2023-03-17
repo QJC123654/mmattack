@@ -11,7 +11,6 @@ import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
 
-from ._utils import locate_candidate_layer
 
 __all__ = ["_CAM"]
 

@@ -31,18 +31,17 @@ def apEval(attack_mode:str, *args, **kwargs):
 
   cat_ids = coco.getCatIds(catNms=CLASSES)
   cat2label = {cat_id: i for i, cat_id in enumerate(cat_ids)}
-
   # load model
 
   # Choose to use a config and initialize the detector
-  # config = 'configs/yolo/yolov3_d53_mstrain-608_273e_coco.py'
-  config = 'configs/gfl/gfl_r50_fpn_1x_coco.py'
+  config = 'configs/yolo/yolov3_d53_mstrain-608_273e_coco.py'
+  # config = 'configs/gfl/gfl_r50_fpn_1x_coco.py'
   # Setup a checkpoint file to load
-  # checkpoint = 'checkpoints/yolov3_d53_mstrain-608_273e_coco_20210518_115020-a2c3acb8.pth'
-  checkpoint = 'checkpoints/gfl_r50_fpn_1x_coco_20200629_121244-25944287.pth'
+  checkpoint = 'checkpoints/yolov3_d53_mstrain-608_273e_coco_20210518_115020-a2c3acb8.pth'
+  # checkpoint = 'checkpoints/gfl_r50_fpn_1x_coco_20200629_121244-25944287.pth'
 
   # Set the device to be used for evaluation
-  device='cuda:0'
+  device= kwargs['device']
 
   # Load the config
   config = mmcv.Config.fromfile(config)
@@ -67,7 +66,8 @@ def apEval(attack_mode:str, *args, **kwargs):
   model.eval()
 
   # do eval
-  ann_path = '../annotations/' + attack_mode + '_val2017.json'
+  name = kwargs['mode'] if attack_mode in ['TargetedAttack', 'MyAttack_Targeted'] else ''
+  ann_path = '../annotations/' + attack_mode + name + '_val2017.json'
   data = json.load(open(ann_path))
 
 
@@ -102,7 +102,6 @@ def apEval(attack_mode:str, *args, **kwargs):
   # get groundtruths and predictions
   groundtruths = []
   predictions = []
-  name = kwargs['mode'] if attack_mode == 'TargetedAttack' else ''
   root_path = '../' + attack_mode + name + '/'
   for img_info in data['images']:
     groundtruth = dict()
@@ -157,11 +156,12 @@ def parse_args():
     parser = argparse.ArgumentParser(description='generate attack on images')
     parser.add_argument('attack_mode', help='which attack to choose')
     parser.add_argument('--mode', type=str, default='ll', help='which targeted attack to choose')
+    parser.add_argument('--device', type=str, default='cuda:1', help='which cuda to choose')
     args = parser.parse_args()
     return args
     
 def main():
     args = parse_args()
-    apEval(args.attack_mode, mode = args.mode)
+    apEval(args.attack_mode, mode = args.mode, device= args.device)
     
 main()

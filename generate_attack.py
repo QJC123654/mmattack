@@ -5,7 +5,7 @@ import cv2
 from init_inference import inference_detector
 from load_model import load_model
 from normalize import normalize, denormalize
-from attack import UntargetedAttack, TargetedAttack, VanishingAttack, MyAttack_Vanishing, MyAttack_Targeted
+from attack import MyAttack, UntargetedAttack, TargetedAttack, VanishingAttack, MyAttack_Vanishing, MyAttack_Targeted
 import torch
 import argparse
 import shutil
@@ -15,9 +15,10 @@ from torchcam.methods import GradCAM
 
 
 def attack(attack_mode:str, *args, **kwargs):
-    assert attack_mode in ('UntargetedAttack', 'TargetedAttack', 'VanishingAttack', 'MyAttack', 'MyAttack_Vanishing'), print('attack do not support!!')
+    assert attack_mode in ('UntargetedAttack', 'TargetedAttack', 'MyAttack_Targeted', 'VanishingAttack', 'MyAttack_Vanishing', 'MyAttack'), print('attack do not support!!')
     # load model
-    model = load_model(device='cuda:1')
+    device = kwargs['device']
+    model = load_model(device=device)
     if attack_mode.startswith('My'):
         cam_extractor = GradCAM(model, ['neck.fpn_convs.0.conv', 'neck.fpn_convs.1.conv', 'neck.fpn_convs.2.conv',
             'neck.fpn_convs.3.conv', 'neck.fpn_convs.4.conv'])
@@ -25,9 +26,9 @@ def attack(attack_mode:str, *args, **kwargs):
     ann_file = '../annotations/instances_val2017.json'
     img_dir = '../val2017/'
     ann_data = json.load(open(ann_file))
-    name = kwargs['mode'] if attack_mode == 'TargetedAttack' else ''
+    name = kwargs['mode'] if attack_mode in ['TargetedAttack', 'MyAttack_Targeted'] else ''
     keep_img_dir_path = '../' + attack_mode + name + '/'
-    keep_ann_path = '../annotations/' + attack_mode + '_val2017.json'
+    keep_ann_path = '../annotations/' + attack_mode + name + '_val2017.json'
     # key = image_id val = annotations_index (list)
     gt_box_idx = dict()
     for i, annotation in enumerate(ann_data['annotations']):
@@ -75,6 +76,8 @@ def attack(attack_mode:str, *args, **kwargs):
                 adv_images = VanishingAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, eps, alpha)
             if attack_mode == 'MyAttack_Vanishing':
                 adv_images = MyAttack_Vanishing(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, cam_extractor, eps, alpha)
+            if attack_mode == 'MyAttack':
+                adv_images = MyAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, cam_extractor, eps, alpha)
             cv2.imwrite(img_keep_path, adv_images.clone().detach().squeeze().permute(1, 2, 0).cpu().numpy()[...,::-1])
             height = data['img_metas'][0][0]['img_shape'][0]
             width = data['img_metas'][0][0]['img_shape'][1]
@@ -102,10 +105,11 @@ def parse_args():
     parser = argparse.ArgumentParser(description='generate attack on images')
     parser.add_argument('attack_mode', help='which attack to choose')
     parser.add_argument('--mode', type=str, default='ll', help='which targeted attack to choose')
+    parser.add_argument('--device', type=str, default='cuda:1', help='which cuda to choose')
     args = parser.parse_args()
     return args
     
 def main():
     args = parse_args()
-    attack(args.attack_mode, mode = args.mode)
+    attack(args.attack_mode, mode = args.mode, device =args.device)
 main()

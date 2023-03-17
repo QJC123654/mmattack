@@ -1,4 +1,5 @@
 from re import L
+from statistics import mode
 from this import d
 import torch
 from normalize import normalize
@@ -36,9 +37,11 @@ def TargetedAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, g
         img_metas_t = data['img_metas'][0]
         # Targeted Attacks
         losses = model(img=img_t, img_metas=img_metas_t, gt_bboxes=gt_bboxes_list, gt_labels=target_attack_labels)
+        loss_gfl = losses.pop('loss_dfl', None)
+        loss_bbox = losses.pop('loss_bbox', None)
         loss, log_vars = model._parse_losses(losses)
-        for key, val in log_vars.items():
-            print('key = ', key, ' val = ', val)
+        # for key, val in log_vars.items():
+        #     print('key = ', key, ' val = ', val)
         grad = torch.autograd.grad(loss, adv_images,
                                 retain_graph=False, create_graph=False)[0]
         adv_images = adv_images.detach() - alpha*grad.sign()
@@ -65,8 +68,8 @@ def MyAttack_Targeted(model, images, adv_images, data, mean, std, gt_bboxes_list
                     target_labels.append(i)
                 if (label == gt_labels).any():
                     victim_labels.append(i)
-            target_labels = torch.tensor(target_labels)
-            victim_labels = torch.tensor(victim_labels)
+            target_labels = torch.tensor(target_labels, dtype=torch.long)
+            victim_labels = torch.tensor(victim_labels, dtype=torch.long)
             activation_map_target = []  
             for cls, logit in zip(att_results[1][target_labels], att_results[2][target_labels]):
                 activation_map_target.append(L1_norm_loss(cam_extractor(cls.item(), logit.unsqueeze(0))[0])) 
@@ -100,8 +103,8 @@ def UntargetedAttack(model, images, adv_images, data, mean, std, gt_bboxes_list,
         # Untargeted Attacks
         losses = model(img=img_t, img_metas=img_metas_t, gt_bboxes=gt_bboxes_list, gt_labels=gt_labels_list)
         loss, log_vars = model._parse_losses(losses)
-        for key, val in log_vars.items():
-            print('key = ', key, ' val = ', val)
+        # for key, val in log_vars.items():
+        #     print('key = ', key, ' val = ', val)
         grad = torch.autograd.grad(loss, adv_images,
                                     retain_graph=False, create_graph=False)[0]
         adv_images = adv_images.detach() + alpha*grad.sign()
@@ -121,6 +124,8 @@ def VanishingAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, 
         img_metas_t = data['img_metas'][0]
         # Untargeted Attacks
         losses = model(img=img_t, img_metas=img_metas_t, gt_bboxes=gt_bboxes_list, gt_labels=bg_labels_list)
+        loss_gfl = losses.pop('loss_dfl', None)
+        loss_bbox = losses.pop('loss_bbox', None)
         loss, log_vars = model._parse_losses(losses)
         # for key, val in log_vars.items():
         #     print('key = ', key, ' val = ', val)
@@ -158,7 +163,9 @@ def MyAttack_Vanishing(model, images, adv_images, data, mean, std, gt_bboxes_lis
         loss, log_vars = model._parse_losses(losses)
         # loss_att = {'loss_att':att_loss}
         # log_vars.update(loss_att)
-        loss = loss + att_loss
+        loss_gfl, _ = model._parse_losses({'loss_gfl':loss_gfl})
+        loss_bbox, _ = model._parse_losses({'loss_bbox':loss_bbox})
+        loss = loss + att_loss - loss_gfl - loss_bbox
         # log_vars.update({'loss':loss})
         # for key, val in log_vars.items():
         #     print('key = ', key, ' val = ', val)
@@ -171,8 +178,12 @@ def MyAttack_Vanishing(model, images, adv_images, data, mean, std, gt_bboxes_lis
 
 
 def MyAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labels_list, cam_extractor, eps, alpha):
+    # generate_bg_labels        
+    bg_labels_list = []
+    for labels in gt_labels_list:
+        bg_labels_list.append(torch.full_like(labels, 80))
     for _ in range(10):
-        print('epoch : ', _)
+        print('epoch------- : ', _)
         adv_images.requires_grad = True
         data['img'][0] = normalize(adv_images, mean, std)
         img_t = data['img'][0]
@@ -189,22 +200,19 @@ def MyAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, gt_labe
         else:
             att_loss = adv_images.new_zeros(1)
         # inference and get loss
-        losses = model(img=img_t, img_metas=img_metas_t, gt_bboxes=gt_bboxes_list, gt_labels=gt_labels_list)
-        loss_cls = losses.pop('loss_cls', None)
-        loss_dfl = losses.pop('loss_dfl', None)
-        loss_cls = dict(loss_cls = loss_cls)
+        losses = model(img=img_t, img_metas=img_metas_t, gt_bboxes=gt_bboxes_list, gt_labels=bg_labels_list)
+        loss_bbox = losses.pop('loss_bbox', None)
+        loss_gfl = losses.pop('loss_dfl', None)
         #losses.pop('loss_dfl', None)
         loss, log_vars = model._parse_losses(losses)
-        loss_cls, log_cls = model._parse_losses(loss_cls)
-        loss = loss + loss_cls - att_loss.to(loss.device) 
-        # log_vars.update(log_cls)
-        # log_vars.update({'att_loss':att_loss})
-        # log_vars.update({'loss':loss})
-        # for key, val in log_vars.items():
-        #     print('key = ', key, ' val = ', val)
-        grad = torch.autograd.grad(loss, adv_images,
+        loss2 = att_loss
+        log_vars.update({'att_loss':att_loss}) 
+        log_vars.update({'loss':loss})
+        for key, val in log_vars.items():
+            print(key, '---------------', val)
+        grad = torch.autograd.grad(loss2, adv_images,
                                     retain_graph=False, create_graph=False)[0]
-        adv_images = adv_images.detach() + alpha*grad.sign()
+        adv_images = adv_images.detach() - alpha*grad.sign()
         delta = torch.clamp(adv_images - images, min=-eps, max=eps)
         adv_images = torch.clamp(images + delta, min=0, max=255).detach() 
     return adv_images
