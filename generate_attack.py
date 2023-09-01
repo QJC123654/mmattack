@@ -1,6 +1,4 @@
-from email import parser
 import json
-from operator import gt
 import cv2
 from init_inference import inference_detector
 from load_model import load_model
@@ -105,7 +103,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='generate attack on images')
     parser.add_argument('attack_mode', help='which attack to choose')
     parser.add_argument('--mode', type=str, default='ll', help='which targeted attack to choose')
-    parser.add_argument('--device', type=str, default='cuda:1', help='which cuda to choose')
+    parser.add_argument('--device', type=str, default='cuda:0', help='which cuda to choose')
     args = parser.parse_args()
     return args
     

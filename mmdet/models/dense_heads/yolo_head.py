@@ -384,7 +384,7 @@ class YOLOV3Head(BaseDenseHead, BBoxTestMixin):
         if torch.max(pos_and_neg_mask) > 1.:
             warnings.warn('There is overlap between pos and neg sample.')
             pos_and_neg_mask = pos_and_neg_mask.clamp(min=0., max=1.)
-
+            
         pred_xy = pred_map[..., :2]
         pred_wh = pred_map[..., 2:4]
         pred_conf = pred_map[..., 4]
@@ -400,7 +400,7 @@ class YOLOV3Head(BaseDenseHead, BBoxTestMixin):
             pred_conf, target_conf, weight=pos_and_neg_mask)
         loss_xy = self.loss_xy(pred_xy, target_xy, weight=pos_mask)
         loss_wh = self.loss_wh(pred_wh, target_wh, weight=pos_mask)
-
+        
         return loss_cls, loss_conf, loss_xy, loss_wh
 
     def get_targets(self, anchor_list, responsible_flag_list, gt_bboxes_list,

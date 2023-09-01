@@ -57,7 +57,6 @@ class _GradCAM(_CAM):
             loss = scores[:, class_idx].sum()
         else:
             loss = scores.gather(1, torch.tensor(class_idx, device=scores.device).view(-1, 1)).sum()
-        self.model.zero_grad()
         loss.backward(retain_graph=retain_graph)
 
     def _get_weights(self, class_idx: Union[int, List[int]], scores: Tensor, **kwargs: Any) -> List[Tensor]:
@@ -102,10 +101,9 @@ class GradCAM(_GradCAM):
 
         # Backpropagate
         self._backprop(scores, class_idx, **kwargs)
-
         self.hook_g: List[Tensor]  # type: ignore[assignment]
         # Global average pool the gradients over spatial dimensions
-        return [grad.flatten(2).mean(-1) for grad in self.hook_g]
+        return [grad.flatten(2).mean(-1) if grad is not None else scores.new_zeros(1) for grad in self.hook_g]
 
 
 class GradCAMpp(_GradCAM):

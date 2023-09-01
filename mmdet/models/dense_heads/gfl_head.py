@@ -1,11 +1,13 @@
 # Copyright (c) OpenMMLab. All rights reserved.
+from cProfile import label
+from numpy import dtype
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from mmcv.cnn import ConvModule, Scale
 from mmcv.runner import force_fp32
 
-from mmdet.core import (anchor, anchor_inside_flags, bbox_overlaps, build_assigner,
+from mmdet.core import (anchor, anchor_inside_flags, bbox, bbox_overlaps, build_assigner,
                         build_sampler, images_to_levels, multi_apply,
                         reduce_mean, unmap)
 from mmdet.core.utils import filter_scores_and_topk
@@ -242,6 +244,8 @@ class GFLHead(AnchorHead):
         """
         assert stride[0] == stride[1], 'h stride is not equal to w stride!'
         anchors = anchors.reshape(-1, 4)
+        logits = cls_score.permute(0, 2, 3,
+                                1).reshape(-1, self.cls_out_channels)
         cls_score = cls_score.permute(0, 2, 3,
                                       1).reshape(-1, self.cls_out_channels)
         bbox_pred = bbox_pred.permute(0, 2, 3,
@@ -255,7 +259,7 @@ class GFLHead(AnchorHead):
         pos_inds = ((labels >= 0)
                     & (labels < bg_class_ind)).nonzero().squeeze(1)
         score = label_weights.new_zeros(labels.shape)
-
+    
         if len(pos_inds) > 0:
             pos_bbox_targets = bbox_targets[pos_inds]
             pos_bbox_pred = bbox_pred[pos_inds]
@@ -276,6 +280,9 @@ class GFLHead(AnchorHead):
             target_corners = self.bbox_coder.encode(pos_anchor_centers,
                                                     pos_decode_bbox_targets,
                                                     self.reg_max).reshape(-1)
+            # get pos logit and label to calculate attention
+            pos_scores = logits[pos_inds]
+            pos_labels = labels[pos_inds]
 
             # regression loss
             loss_bbox = self.loss_bbox(
@@ -294,6 +301,8 @@ class GFLHead(AnchorHead):
             loss_bbox = bbox_pred.sum() * 0
             loss_dfl = bbox_pred.sum() * 0
             weight_targets = bbox_pred.new_tensor(0)
+            pos_scores = cls_score.new_zeros(0, self.cls_out_channels)
+            pos_labels = labels.new_zeros(0)
 
         # cls (qfl) loss
         loss_cls = self.loss_cls(
@@ -301,7 +310,7 @@ class GFLHead(AnchorHead):
             weight=label_weights,
             avg_factor=num_total_samples)
 
-        return loss_cls, loss_bbox, loss_dfl, weight_targets.sum()
+        return loss_cls, loss_bbox, loss_dfl, weight_targets.sum(), pos_scores, pos_labels 
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds'))
     def loss(self,
@@ -359,7 +368,7 @@ class GFLHead(AnchorHead):
         num_total_samples = max(num_total_samples, 1.0)
 
         losses_cls, losses_bbox, losses_dfl,\
-            avg_factor = multi_apply(
+            avg_factor, pos_scores, pos_labels = multi_apply(
                 self.loss_single,
                 anchor_list,
                 cls_scores,
@@ -375,7 +384,8 @@ class GFLHead(AnchorHead):
         losses_bbox = list(map(lambda x: x / avg_factor, losses_bbox))
         losses_dfl = list(map(lambda x: x / avg_factor, losses_dfl))
         return dict(
-            loss_cls=losses_cls, loss_bbox=losses_bbox, loss_dfl=losses_dfl)
+            loss_cls=losses_cls, loss_bbox=losses_bbox, loss_dfl=losses_dfl,
+            pos_scores=pos_scores, pos_labels=pos_labels)
 
     def _get_bboxes_single(self,
                            cls_score_list,
@@ -459,7 +469,6 @@ class GFLHead(AnchorHead):
             scores, labels, keep_idxs, filtered_results = results
             logit = logit[keep_idxs]
             gf_bbox_pred = gf_bbox_pred[keep_idxs]
-
             bbox_pred = filtered_results['bbox_pred']
             priors = filtered_results['priors']
 

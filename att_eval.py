@@ -103,6 +103,7 @@ def apEval(attack_mode:str, *args, **kwargs):
   groundtruths = []
   predictions = []
   root_path = '../' + attack_mode + name + '/'
+  
   for img_info in data['images']:
     groundtruth = dict()
     prediction = dict()

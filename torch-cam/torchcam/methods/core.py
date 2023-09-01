@@ -10,7 +10,7 @@ from typing import Any, List, Optional, Tuple, Union
 import torch
 import torch.nn.functional as F
 from torch import Tensor, nn
-
+from ._utils import locate_candidate_layer
 
 __all__ = ["_CAM"]
 
@@ -186,7 +186,7 @@ class _CAM:
 
         # Get map weight & unsqueeze it
         weights = self._get_weights(class_idx, scores, **kwargs)
-
+        
         cams: List[Tensor] = []
         for weight, activation in zip(weights, self.hook_a):
             missing_dims = activation.ndim - weight.ndim  # type: ignore[union-attr]
@@ -204,6 +204,9 @@ class _CAM:
 
             cams.append(cam)
 
+        # clear g 
+        self.hook_g: List[Optional[Tensor]] = [None] * len(self.target_names)
+        
         return cams
 
     def extra_repr(self) -> str:
