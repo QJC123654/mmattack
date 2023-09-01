@@ -111,7 +111,12 @@ def VanishingAttack(model, images, adv_images, data, mean, std, gt_bboxes_list, 
     # generate_bg_labels
     bg_labels_list = []
     for labels in gt_labels_list:
-        bg_labels_list.append(torch.full_like(labels, 80))
+        # bg_labels_list.append(torch.full_like(labels, 80))
+        gt_labels = torch.full_like(labels, 18)
+        bg_labels = torch.full_like(labels, 80)
+        is_gt_labels = (gt_labels == labels)
+        adv_labels = torch.where(is_gt_labels, bg_labels, labels)
+        bg_labels_list.append(adv_labels)
     for _ in range(10):
         adv_images.requires_grad = True
         data['img'][0] = normalize(adv_images, mean, std)

@@ -21,12 +21,12 @@ def attack(attack_mode:str, *args, **kwargs):
         cam_extractor = GradCAM(model, ['neck.fpn_convs.0.conv', 'neck.fpn_convs.1.conv', 'neck.fpn_convs.2.conv',
             'neck.fpn_convs.3.conv', 'neck.fpn_convs.4.conv'])
     # attack coco2017val 
-    ann_file = '../annotations/instances_val2017.json'
-    img_dir = '../val2017/'
+    ann_file = '../coco2017/annotations/dog.json'
+    img_dir = '../coco2017/coco_dog/'
     ann_data = json.load(open(ann_file))
     name = kwargs['mode'] if attack_mode in ['TargetedAttack', 'MyAttack_Targeted'] else ''
     keep_img_dir_path = '../' + attack_mode + name + '/'
-    keep_ann_path = '../annotations/' + attack_mode + name + '_val2017.json'
+    keep_ann_path = '../annotations/' + attack_mode + name + 'dog.json'
     # key = image_id val = annotations_index (list)
     gt_box_idx = dict()
     for i, annotation in enumerate(ann_data['annotations']):
@@ -38,7 +38,7 @@ def attack(attack_mode:str, *args, **kwargs):
             gt_box_idx[key].append(i)
 
     for i, img_info in enumerate(ann_data['images']):
-        if i % 50 == 0:
+        if i % 10 == 0:
             print('picture----------------', i)
         img_id = img_info['id']
         img_file_name = img_info['file_name']
