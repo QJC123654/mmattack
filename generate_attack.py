@@ -1,7 +1,7 @@
 import json
 import cv2
-from attack import MyAttack_Untargeted, UntargetedAttack
-from attack_test import MyAttack_Vanishing, VanishingAttack
+from attack import MyAttack_Untargeted
+from attack_test import MyAttack_Vanishing, VanishingAttack, UntargetedAttack
 import argparse
 import shutil
 from functools import partial
@@ -22,8 +22,8 @@ from det_cam_visualizer import DetCAMModel, DetCAMVisualizer, reshape_transform,
 def attack(args):
     attack_mode = args.attack_mode
     assert attack_mode in ('UntargetedAttack', 'TargetedAttack', 'MyAttack_Targeted', 'VanishingAttack', 'MyAttack_Vanishing', 'MyAttack', 'MyAttack_Untargeted'), print('attack do not support!!')
-    ann_file = '../annotations/instances_val2017.json'
-    img_dir = '../val2017/'
+    ann_file = '../coco2017/annotations/instances_val2017.json'
+    img_dir = '../coco2017/val2017/'
     ann_data = json.load(open(ann_file))
     name = args.mode if attack_mode in ['TargetedAttack', 'MyAttack_Targeted'] else ''
     keep_img_dir_path = '../' + attack_mode + name + '/'

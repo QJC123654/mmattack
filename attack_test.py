@@ -1,6 +1,8 @@
 import torch
 from normalize import normalize, denormalize
 import torch.nn as nn
+import torch.nn.functional as F
+from mmdet.models.builder import build_loss
 
 def GenerateMask(target_size, boxes):
     boxes = boxes.to(torch.int32)
@@ -70,7 +72,6 @@ def MyAttack_Vanishing(model, det_cam_visualizer, targets, gt_bboxes_list, gt_la
     adv_images = images * (1 - adv_mask) + adv_mask * adv_patch
     return adv_images
 
-
 def VanishingAttack(model, gt_bboxes_list, gt_labels_list, bboxes, labels, image_numpy):
     adv_gt_bboxes_list = []
     adv_gt_labels_list = []
@@ -109,3 +110,101 @@ def VanishingAttack(model, gt_bboxes_list, gt_labels_list, bboxes, labels, image
     model.set_return_loss(False)
     adv_images = images * (1 - adv_mask) + adv_mask * adv_patch
     return adv_images
+
+def UntargetedAttack(model, gt_bboxes_list, gt_labels_list, bboxes, labels, image_numpy):
+    # init adv_image
+    eps = 8
+    alpha = 2
+    mean = torch.tensor(model.input_data['img_metas'][0][0]['img_norm_cfg']['mean']).to(model.device)
+    std = torch.tensor(model.input_data['img_metas'][0][0]['img_norm_cfg']['std']).to(model.device)
+
+    clean_pred_corners = None
+    images = model.input_data['img'][0].clone().detach()
+    images = denormalize(images, mean=mean, std=std)
+    adv_imagas = images.clone().detach()
+    adv_images = adv_imagas + torch.empty_like(adv_imagas).uniform_(-eps, eps)
+    adv_images = torch.clamp(adv_images, min=0, max=255).detach()
+
+    model.set_return_loss(True)
+    model.set_input_data(image_numpy, bboxes=bboxes, labels=labels)
+
+    # inference for clean_pred_corners
+    losses = model.detector.forward_train(model.input_data['img'], model.input_data['img_metas'], gt_bboxes_list, gt_labels_list)
+    clean_pred_corners = losses.pop('pred_corners')
+    weights = losses.pop('weights')
+
+    for i in range(10):
+        # print("iter----", i)
+        adv_images.requires_grad = True
+        model.input_data['img'] = normalize(adv_images, mean, std)
+        # get loss
+        losses = model.detector.forward_train(model.input_data['img'], model.input_data['img_metas'], gt_bboxes_list, gt_labels_list)
+        losses.pop('loss_dfl', None)
+        adv_pred_corners = losses.pop('pred_corners')
+        # adv_ld_losses = adv_ld_loss(adv_pred_corners, clean_pred_corners)
+        adv_ld_losses2 = MSELoss(adv_pred_corners, clean_pred_corners, weights)
+        # print(losses.keys())
+        loss_pred, loss_vars = model.detector._parse_losses(losses)
+        loss = loss_pred + 0.15 * adv_ld_losses2 + 0.1 * loss_ld(adv_corners=adv_pred_corners, clean_corners=clean_pred_corners, weight=weights, avg_factor=4.0)
+        print('loss1 --- ', loss_pred.item(), '     loss2 -- ', adv_ld_losses2.item())
+        # loss = loss_pred + adv_ld_weight_loss(adv_pred_corners, clean_pred_corners, weights, loss_weight=0.1, avg_factor=1.0, T=3)
+        # print('loss_pred  ', loss_pred.item(), 'adv_ld_losses  ', adv_ld_losses.item())
+        grad = torch.autograd.grad(loss, adv_images,
+                                retain_graph=False, create_graph=False)[0]
+        adv_images = adv_images.detach() + alpha*grad.sign()
+        delta = torch.clamp(adv_images - images, min=-eps, max=eps)
+        adv_images = torch.clamp(images + delta, min=0, max=255).detach() 
+    model.set_return_loss(False)
+    return adv_images
+
+
+def adv_ld_loss(adv_pred_corners, clean_pred_corners):
+    assert len(adv_pred_corners) == len(clean_pred_corners), print('kl loss input error')
+    n, c = len(adv_pred_corners), adv_pred_corners[0].shape[-1]
+    for i in range(n):
+        adv_pred_corners[i].view(-1, c)
+        clean_pred_corners[i].view(-1, c)
+    adv_pred_corners = torch.cat(adv_pred_corners, dim=0)
+    clean_pred_corners = torch.cat(clean_pred_corners, dim=0)
+    T = 14
+    clean_pred_corners = F.softmax(clean_pred_corners / T, dim=-1)
+    return F.kl_div(F.log_softmax(adv_pred_corners / T, dim=-1), clean_pred_corners, reduction='mean') * (T * T)
+
+def MSELoss(adv_pred_corners, clean_pred_corners, weights):
+    assert len(adv_pred_corners) == len(clean_pred_corners), print('mse loss input error')
+    n, c = len(adv_pred_corners), adv_pred_corners[0].shape[-1]
+    for i in range(n):
+        adv_pred_corners[i].view(-1, c)
+        clean_pred_corners[i].view(-1, c)
+    adv_pred_corners = torch.cat(adv_pred_corners, dim=0)
+    clean_pred_corners = torch.cat(clean_pred_corners, dim=0)
+    weights = torch.cat(weights)
+    loss = nn.MSELoss(reduction='none')
+    losses = loss(adv_pred_corners, clean_pred_corners).mean(-1) * weights
+    return losses.mean()
+
+def adv_ld_weight_loss(adv_pred_corners, clean_pred_corners, weights, loss_weight, avg_factor, T):
+    assert len(adv_pred_corners) == len(clean_pred_corners), print('kl loss input error')
+    n, c = len(adv_pred_corners), adv_pred_corners[0].shape[-1]
+    for i in range(n):
+        adv_pred_corners[i].view(-1, c)
+        clean_pred_corners[i].view(-1, c)
+    adv_pred_corners = torch.cat(adv_pred_corners, dim=0)
+    clean_pred_corners = torch.cat(clean_pred_corners, dim=0)
+    weights = torch.cat(weights)
+    clean_pred_corners = F.softmax(clean_pred_corners / T, dim=-1)
+    loss = F.kl_div(F.log_softmax(adv_pred_corners / T, dim=-1), clean_pred_corners, reduction='none').mean(-1) * (T * T)
+    if weights is not None:
+        loss = loss * weights
+    eps = torch.finfo(torch.float32).eps
+    loss = loss.sum() / (avg_factor + eps)
+    return loss * loss_weight
+    
+def loss_ld(adv_corners, clean_corners, weight, avg_factor):
+    loss_cfg = dict(type='KnowledgeDistillationKLDivLoss', loss_weight=0.1, T=13)
+    loss = build_loss(loss_cfg)
+    assert len(adv_corners) == len(clean_corners), print('kl loss input error')
+    adv_corners = torch.cat(adv_corners, dim=0)
+    clean_corners = torch.cat(clean_corners, dim=0)
+    weight = torch.cat(weight)
+    return loss(adv_corners, clean_corners, weight, avg_factor)

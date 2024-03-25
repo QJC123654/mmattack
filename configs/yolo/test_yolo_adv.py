@@ -104,13 +104,13 @@ data = dict(
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
-        ann_file='/home/ubuntu/qjc/annotations/VanishingAttackval2017.json',
-        img_prefix='/home/ubuntu/qjc/VanishingAttack',
+        ann_file='/home/ubuntu/qjc/annotations/UntargetedAttackval2017.json',
+        img_prefix='/home/ubuntu/qjc/UntargetedAttack',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
-        ann_file='/home/ubuntu/qjc/annotations/VanishingAttackval2017.json',
-        img_prefix='/home/ubuntu/qjc/VanishingAttack',
+        ann_file='/home/ubuntu/qjc/annotations/UntargetedAttackval2017.json',
+        img_prefix='/home/ubuntu/qjc/UntargetedAttack',
         pipeline=test_pipeline))
 # optimizer
 optimizer = dict(type='SGD', lr=0.001, momentum=0.9, weight_decay=0.0005)

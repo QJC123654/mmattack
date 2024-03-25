@@ -38,12 +38,12 @@ data = dict(
         pipeline=train_pipeline),
     val=dict(
         type=dataset_type,
-        ann_file='/home/ubuntu/qjc/annotations/MyAttack_Vanishingdog.json',
-        img_prefix='/home/ubuntu/qjc/MyAttack_Vanishing',
+        ann_file='/home/ubuntu/qjc/coco2017/annotations/dog.json',
+        img_prefix='/home/ubuntu/qjc/coco2017/coco_dog',
         pipeline=test_pipeline),
     test=dict(
         type=dataset_type,
-        ann_file='/home/ubuntu/qjc/annotations/MyAttack_Vanishingdog.json',
-        img_prefix='/home/ubuntu/qjc/MyAttack_Vanishing',
+        ann_file='/home/ubuntu/qjc/coco2017/annotations/dog.json',
+        img_prefix='/home/ubuntu/qjc/coco2017/coco_dog',
         pipeline=test_pipeline))
 evaluation = dict(interval=1, metric='bbox', classwise=False)

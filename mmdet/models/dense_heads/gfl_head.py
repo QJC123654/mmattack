@@ -243,8 +243,6 @@ class GFLHead(AnchorHead):
         """
         assert stride[0] == stride[1], 'h stride is not equal to w stride!'
         anchors = anchors.reshape(-1, 4)
-        logits = cls_score.permute(0, 2, 3,
-                                1).reshape(-1, self.cls_out_channels)
         cls_score = cls_score.permute(0, 2, 3,
                                       1).reshape(-1, self.cls_out_channels)
         bbox_pred = bbox_pred.permute(0, 2, 3,
@@ -257,27 +255,10 @@ class GFLHead(AnchorHead):
         bg_class_ind = self.num_classes
         pos_inds = ((labels >= 0)
                     & (labels < bg_class_ind)).nonzero().squeeze(1)
-        # get victim_inds
-        victim_inds = (labels > bg_class_ind).nonzero().squeeze(1)
-
         score = label_weights.new_zeros(labels.shape)
-        if len(victim_inds) > 0:
-            victim_bbox_targets = bbox_targets[victim_inds]
-            victim_bbox_pred = bbox_pred[victim_inds]
-            victim_anchors = anchors[victim_inds]
-            victim_anchor_centers = self.anchor_center(victim_anchors) / stride[0]
-
-            victim_bbox_pred_corners = self.integral(victim_bbox_pred)
-            victim_decode_bbox_pred = self.bbox_coder.decode(
-                victim_anchor_centers, victim_bbox_pred_corners)
-            victim_decode_bbox_targets = victim_bbox_targets / stride[0]
-            victim_score = bbox_overlaps(
-                victim_decode_bbox_pred.detach(),
-                victim_decode_bbox_targets,
-                is_aligned=True)            
-        else:
-            victim_score = label_weights.new_tensor([])
-            
+        # init
+        pred_corners = bbox_pred.new_zeros(0, self.reg_max + 1)
+        weight = bbox_pred.new_zeros(0)
         if len(pos_inds) > 0:
             pos_bbox_targets = bbox_targets[pos_inds]
             pos_bbox_pred = bbox_pred[pos_inds]
@@ -297,11 +278,7 @@ class GFLHead(AnchorHead):
             pred_corners = pos_bbox_pred.reshape(-1, self.reg_max + 1)
             target_corners = self.bbox_coder.encode(pos_anchor_centers,
                                                     pos_decode_bbox_targets,
-                                                    self.reg_max).reshape(-1)
-            # get pos logit and label to calculate attention
-            # pos_scores = logits[pos_inds]
-            # pos_labels = labels[pos_inds]
-            
+                                                    self.reg_max).reshape(-1)            
             # regression loss
             loss_bbox = self.loss_bbox(
                 pos_decode_bbox_pred,
@@ -315,22 +292,17 @@ class GFLHead(AnchorHead):
                 target_corners,
                 weight=weight_targets[:, None].expand(-1, 4).reshape(-1),
                 avg_factor=4.0)
+            weight = weight_targets[:, None].expand(-1, 4).reshape(-1)
         else:
             loss_bbox = bbox_pred.sum() * 0
             loss_dfl = bbox_pred.sum() * 0
             weight_targets = bbox_pred.new_tensor(0)
-            # pos_scores = cls_score.new_zeros(0, self.cls_out_channels)
-            # pos_labels = labels.new_zeros(0)
-        
-
         # cls (qfl) loss
         loss_cls = self.loss_cls(
             cls_score, (labels, score),
             weight=label_weights,
             avg_factor=num_total_samples)
-
-        victim_logits = logits[victim_inds]
-        return loss_cls, loss_bbox, loss_dfl, weight_targets.sum(), victim_inds, victim_logits, victim_score
+        return loss_cls, loss_bbox, loss_dfl, weight_targets.sum(), pred_corners, weight
 
     @force_fp32(apply_to=('cls_scores', 'bbox_preds'))
     def loss(self,
@@ -386,9 +358,8 @@ class GFLHead(AnchorHead):
             torch.tensor(num_total_pos, dtype=torch.float,
                          device=device)).item()
         num_total_samples = max(num_total_samples, 1.0)
-
         losses_cls, losses_bbox, losses_dfl,\
-            avg_factor, victim_inds, victim_logits, victim_score = multi_apply(
+            avg_factor, pred_corners, weights = multi_apply(
                 self.loss_single,
                 anchor_list,
                 cls_scores,
@@ -404,8 +375,7 @@ class GFLHead(AnchorHead):
         losses_bbox = list(map(lambda x: x / avg_factor, losses_bbox))
         losses_dfl = list(map(lambda x: x / avg_factor, losses_dfl))
         return dict(
-            loss_cls=losses_cls, loss_bbox=losses_bbox, loss_dfl=losses_dfl,
-            victim_inds=victim_inds, victim_logits=victim_logits, victim_score = victim_score)
+            loss_cls=losses_cls, loss_bbox=losses_bbox, loss_dfl=losses_dfl, pred_corners=pred_corners, weights=weights)
 
     def _get_bboxes_single(self,
                            cls_score_list,
